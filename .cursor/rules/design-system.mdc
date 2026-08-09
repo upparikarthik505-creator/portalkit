@@ -1,0 +1,24 @@
+---
+description: Enforce PortalKit design-system.md — no style drift across pages
+alwaysApply: true
+---
+
+# PortalKit Design System Lock
+
+Before changing any marketing or UI page, read and follow [`design-system.md`](../../design-system.md).
+
+## Standing rules
+
+1. **Restate reuse:** Start UI work by noting you are using tokens/components from `design-system.md`.
+2. **No improvisation:** Do not introduce new colors, fonts, spacing values, radii, shadows, or animation timings outside the design system. If a new pattern seems needed, flag it instead of inventing it silently.
+3. **Reuse components:** Use shared `.btn`, `MarketingHeader`, `MarketingFooter`, `BrandMark`, `MagneticLink`, `KineticHeadline` / `SplitHeadline`, `CountMetric`, `LandingMotion` — do not create page-specific visual variants unless explicitly asked.
+4. **One motion language:** Section reveals use `SectionReveal` timings; heroes may use `HeroEnter` + `SplitRise`. Match `--motion-*` CSS variables / design-system §6. Transform-only on copy (no opacity tweens on headlines/body).
+5. **Typography:** Prefer `.mkt-*` classes over ad-hoc `text-[Npx]` on marketing pages.
+6. **Container:** Marketing sections use `max-w-6xl` + `px-5` / `.mkt-section`.
+7. **Accessibility:** Keep focus rings, AA contrast, and `prefers-reduced-motion` fallbacks.
+
+## Anti-patterns (blocked)
+
+- Purple-led marketing themes, cream+serif clichés, cards in heroes, floating badges on hero media
+- Per-page one-off animation easings/durations
+- Second animation library (Framer/Lottie) without an explicit migration pass — current stack is GSAP matching design-system timings

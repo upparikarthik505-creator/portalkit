@@ -1,0 +1,6 @@
+.cursor
+canvases
+*.canvas.tsx
+agent-transcripts
+.env*.local
+!.env.example

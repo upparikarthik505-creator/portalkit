@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { X } from "lucide-react";
-import { createProject } from "@/lib/store";
+import type { Contact } from "@/lib/contacts-db";
+import { createProjectGuarded } from "@/lib/store";
 
 export function NewProjectModal({
   open,
@@ -13,6 +15,11 @@ export function NewProjectModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [upgradeHref, setUpgradeHref] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactId, setContactId] = useState("");
   const [form, setForm] = useState({
     name: "",
     clientName: "",
@@ -21,13 +28,47 @@ export function NewProjectModal({
     dueDate: "",
   });
 
+  useEffect(() => {
+    if (!open) return;
+    void fetch("/api/contacts")
+      .then((r) => r.json())
+      .then((data: { contacts?: Contact[] }) => {
+        setContacts(data.contacts ?? []);
+      })
+      .catch(() => setContacts([]));
+  }, [open]);
+
   if (!open) return null;
 
-  function submit(e: React.FormEvent) {
+  function applyContact(id: string) {
+    setContactId(id);
+    const c = contacts.find((x) => x.id === id);
+    if (!c) return;
+    setForm((prev) => ({
+      ...prev,
+      clientName: c.name,
+      clientEmail: c.email,
+      storeUrl: c.storeUrl || prev.storeUrl,
+    }));
+  }
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const project = createProject(form);
+    setError(null);
+    setUpgradeHref(null);
+    setPending(true);
+    const result = await createProjectGuarded({
+      ...form,
+      contactId: contactId || null,
+    });
+    setPending(false);
+    if ("error" in result) {
+      setError(result.error);
+      setUpgradeHref(result.upgradeHref ?? "/dashboard/billing");
+      return;
+    }
     onClose();
-    router.push(`/dashboard/projects/${project.id}`);
+    router.push(`/dashboard/projects/${result.project.id}`);
   }
 
   return (
@@ -35,7 +76,7 @@ export function NewProjectModal({
       <div className="surface w-full max-w-lg p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="display text-2xl">
+            <h2 className="font-extrabold tracking-[-0.02em] text-2xl">
               New client project
             </h2>
             <p className="mt-1 text-sm text-muted">
@@ -53,6 +94,23 @@ export function NewProjectModal({
         </div>
 
         <form onSubmit={submit} className="space-y-3">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-ink">
+              Link contact (optional)
+            </span>
+            <select
+              value={contactId}
+              onChange={(e) => applyContact(e.target.value)}
+              className="w-full rounded-xl border border-line bg-white px-3.5 py-2.5 outline-none ring-accent/30 focus:ring-2"
+            >
+              <option value="">New / enter manually</option>
+              {contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} · {c.email}
+                </option>
+              ))}
+            </select>
+          </label>
           {(
             [
               ["name", "Project name", "Aurora Skincare — Theme rebuild"],
@@ -68,7 +126,13 @@ export function NewProjectModal({
               </span>
               <input
                 required
-                type={key === "dueDate" ? "date" : key === "clientEmail" ? "email" : "text"}
+                type={
+                  key === "dueDate"
+                    ? "date"
+                    : key === "clientEmail"
+                      ? "email"
+                      : "text"
+                }
                 value={form[key]}
                 placeholder={placeholder}
                 onChange={(e) =>
@@ -78,15 +142,23 @@ export function NewProjectModal({
               />
             </label>
           ))}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary">
-              Create project
-            </button>
-          </div>
+          {error ? (
+            <p className="rounded-xl border border-line bg-paper px-3 py-2 text-sm text-ink-2">
+              {error}{" "}
+              {upgradeHref ? (
+                <Link href={upgradeHref} className="font-semibold text-accent">
+                  Upgrade
+                </Link>
+              ) : null}
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            disabled={pending}
+            className="btn btn-primary w-full !py-3"
+          >
+            {pending ? "Creating…" : "Create project"}
+          </button>
         </form>
       </div>
     </div>

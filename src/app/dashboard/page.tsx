@@ -2,198 +2,295 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowUpRight,
-  FileText,
-  Plus,
-  Receipt,
-  Users,
-  Workflow,
-} from "lucide-react";
+import { ArrowUpRight, FileStack, Plus } from "lucide-react";
 import { NewProjectModal } from "@/components/NewProjectModal";
-import {
-  DEMO_INVOICES,
-  DEMO_LEADS,
-  DEMO_PROPOSALS,
-} from "@/lib/demo-data";
-import { formatMoney, loadProjects } from "@/lib/store";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
+import { CountMetric } from "@/components/motion/CountMetric";
+import { MagneticButton } from "@/components/motion/MagneticButton";
+import { MagneticLink } from "@/components/motion/MagneticLink";
+import { SplitHeadline } from "@/components/motion/SplitHeadline";
+import { formatMoney, hydrateProjects } from "@/lib/store";
 import { STATUS_CLASS, STATUS_LABELS, type Project } from "@/lib/types";
+
+/**
+ * Command — reuses tokens/components from design-system.md
+ */
+
+function greetingLabel() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [open, setOpen] = useState(false);
+  const [greeting, setGreeting] = useState("Welcome");
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setProjects(loadProjects());
-  }, []);
+    setGreeting(greetingLabel());
+    void hydrateProjects().then((list) => {
+      setProjects(list);
+      setLoaded(true);
+    });
+  }, [open]);
 
   const stats = useMemo(() => {
-    const pipeline = DEMO_LEADS.reduce((s, l) => s + l.valueCents, 0);
-    const awaiting = DEMO_INVOICES.filter((i) => i.status === "sent" || i.status === "overdue").reduce(
-      (s, i) => s + i.amountCents,
-      0,
-    );
-    const paid = DEMO_INVOICES.filter((i) => i.status === "paid").reduce(
-      (s, i) => s + i.amountCents,
-      0,
-    );
+    const awaiting = projects
+      .flatMap((p) => p.payments)
+      .filter((pay) => pay.status === "sent")
+      .reduce((s, pay) => s + pay.amountCents, 0);
+    const paid = projects
+      .flatMap((p) => p.payments)
+      .filter((pay) => pay.status === "paid")
+      .reduce((s, pay) => s + pay.amountCents, 0);
     return {
-      pipeline,
+      pipeline: 0,
       awaiting,
       paid,
-      clients: 5,
       active: projects.filter((p) => p.status !== "done").length,
     };
   }, [projects]);
 
+  const empty = loaded && projects.length === 0;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#71717a]">
-            Home
-          </p>
-          <h1 className="mt-1 font-[family-name:var(--font-syne)] text-[36px] tracking-[-0.035em]">
-            Good evening — here’s your business
-          </h1>
-          <p className="mt-1 text-[15px] text-[#71717a]">
-            Pipeline, clients, proposals, invoices, and portals in one workspace.
+    <div className="space-y-8">
+      <div className="dash-rise flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          <p className="mkt-eyebrow">Command</p>
+          <SplitHeadline
+            as="h1"
+            text={`${greeting}`}
+            className="mkt-h2 mt-2"
+          />
+          <p className="mkt-lede mt-3">
+            {empty
+              ? "Your workspace is empty and private to you. Start a build to open the first client portal."
+              : "Your Shopify client HQ — deals warming up, builds in flight, cash on the way."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href="/dashboard/proposals"
-            className="inline-flex items-center gap-2 rounded-full border border-[#e4e4e7] bg-white px-4 py-2.5 text-[13px] font-bold"
+          <MagneticLink
+            href="/dashboard/files"
+            className="btn btn-secondary btn-compact"
           >
-            <FileText className="h-4 w-4" />
-            New proposal
-          </Link>
-          <button
+            <FileStack className="h-4 w-4" aria-hidden />
+            New offer pack
+          </MagneticLink>
+          <MagneticButton
             type="button"
-            className="inline-flex items-center gap-2 rounded-full bg-[#ff4f1a] px-4 py-2.5 text-[13px] font-bold text-white"
+            className="btn btn-primary btn-compact"
             onClick={() => setOpen(true)}
           >
-            <Plus className="h-4 w-4" />
-            New project
-          </button>
+            <Plus className="h-4 w-4" aria-hidden />
+            Start a build
+          </MagneticButton>
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          ["Pipeline value", formatMoney(stats.pipeline), "Open deals", Workflow, "/dashboard/pipeline"],
-          ["Awaiting payment", formatMoney(stats.awaiting), "Invoices out", Receipt, "/dashboard/invoices"],
-          ["Collected", formatMoney(stats.paid), "Marked paid", Receipt, "/dashboard/invoices"],
-          ["Active projects", String(stats.active), "In delivery", Users, "/dashboard/projects"],
-        ].map(([label, value, hint, Icon, href]) => {
-          const I = Icon as typeof Workflow;
-          return (
-            <Link
-              key={label as string}
-              href={href as string}
-              className="rounded-2xl border border-[#e4e4e7] bg-white p-5 shadow-[0_10px_30px_rgba(16,35,28,0.04)] transition hover:-translate-y-0.5"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-[13px] font-semibold text-[#71717a]">{label as string}</p>
-                <I className="h-4 w-4 text-[#ff4f1a]" />
-              </div>
-              <p className="mt-3 font-[family-name:var(--font-syne)] text-[32px] tracking-[-0.03em]">
-                {value as string}
-              </p>
-              <p className="mt-1 text-[12px] text-[#a1a1aa]">{hint as string}</p>
-            </Link>
-          );
-        })}
+      <OnboardingChecklist />
+
+      <div className="dash-rise grid gap-6 border-y border-line py-6 sm:grid-cols-2 xl:grid-cols-4 xl:gap-0">
+        {(
+          [
+            [
+              "Open deal value",
+              stats.pipeline / 100,
+              empty ? "Add your first deal" : "On the board",
+              "/dashboard/pipeline",
+              empty ? 0 : 0.75,
+            ],
+            [
+              "Cash waiting",
+              stats.awaiting / 100,
+              empty ? "No invoices yet" : "Invoices out",
+              "/dashboard/invoices",
+              empty ? 0 : 0.45,
+            ],
+            [
+              "Banked this cycle",
+              stats.paid / 100,
+              empty ? "Nothing paid yet" : "Marked paid",
+              "/dashboard/invoices",
+              empty ? 0 : 0.35,
+            ],
+            [
+              "Builds live",
+              stats.active,
+              empty ? "Start your first build" : "In delivery",
+              "/dashboard/projects",
+              empty ? 0 : 0.6,
+            ],
+          ] as const
+        ).map(([label, value, hint, href, bar], i) => (
+          <Link
+            key={label}
+            href={href}
+            className={`block xl:px-5 ${i > 0 ? "xl:border-l xl:border-line" : ""} ${i === 0 ? "xl:pl-0" : ""} ${i === 3 ? "xl:pr-0" : ""}`}
+          >
+            <CountMetric
+              flat
+              value={value}
+              prefix={label === "Builds live" ? "" : "$"}
+              decimals={0}
+              label={label}
+              hint={hint}
+              bar={bar}
+            />
+          </Link>
+        ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
-        <section className="rounded-2xl border border-[#e4e4e7] bg-white shadow-[0_10px_30px_rgba(16,35,28,0.04)]">
-          <div className="flex items-center justify-between border-b border-[#f4f4f5] px-5 py-4">
-            <h2 className="font-[family-name:var(--font-syne)] text-[22px]">
-              Active projects
-            </h2>
-            <Link
+      <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+        <section className="dash-rise overflow-hidden rounded-[var(--radius)] border border-line bg-paper-2 shadow-[var(--shadow)]">
+          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+            <div>
+              <h2 className="mkt-h3">Delivery queue</h2>
+              <p className="mkt-meta mt-1 text-muted">
+                Theme rebuilds, launches, and retainers in motion
+              </p>
+            </div>
+            <MagneticLink
               href="/dashboard/projects"
-              className="inline-flex items-center gap-1 text-[13px] font-bold text-[#ff4f1a]"
+              className="mkt-link inline-flex items-center gap-1"
             >
-              View all <ArrowUpRight className="h-4 w-4" />
-            </Link>
+              All builds <ArrowUpRight className="h-4 w-4" aria-hidden />
+            </MagneticLink>
           </div>
-          <div className="divide-y divide-[#f4f4f5]">
-            {projects.map((project) => (
-              <Link
-                key={project.id}
-                href={`/dashboard/projects/${project.id}`}
-                className="flex flex-col gap-3 px-5 py-4 transition hover:bg-[#f4f4f5] md:flex-row md:items-center md:justify-between"
+          {projects.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="mkt-row">No projects yet</p>
+              <p className="mkt-meta mt-2 text-muted">
+                This account starts with a clean database — nothing shared from
+                demos or other users.
+              </p>
+              <MagneticButton
+                type="button"
+                className="btn btn-primary btn-compact mt-5"
+                onClick={() => setOpen(true)}
               >
-                <div>
-                  <p className="font-semibold">{project.name}</p>
-                  <p className="mt-1 text-[13px] text-[#71717a]">
-                    {project.clientName} · {project.storeUrl}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`status-pill ${STATUS_CLASS[project.status]}`}>
-                    {STATUS_LABELS[project.status]}
-                  </span>
-                  <span className="text-[13px] text-[#a1a1aa]">Due {project.dueDate}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+                <Plus className="h-4 w-4" aria-hidden />
+                Create your first project
+              </MagneticButton>
+            </div>
+          ) : (
+            <div className="divide-y divide-line">
+              {projects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/dashboard/projects/${project.id}`}
+                  className="dash-row flex flex-col gap-3 px-5 py-4 transition-colors duration-[var(--motion-micro)] hover:bg-paper md:flex-row md:items-center md:justify-between"
+                >
+                  <div>
+                    <p className="mkt-row">{project.name}</p>
+                    <p className="mkt-meta mt-1 text-muted">
+                      {project.clientName} · {project.storeUrl}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`status-pill ${STATUS_CLASS[project.status]}`}
+                    >
+                      {STATUS_LABELS[project.status]}
+                    </span>
+                    <span className="mkt-meta text-muted">
+                      Due {project.dueDate}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </section>
 
         <div className="space-y-4">
-          <section className="rounded-2xl border border-[#e4e4e7] bg-white p-5 shadow-[0_10px_30px_rgba(16,35,28,0.04)]">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-[family-name:var(--font-syne)] text-[20px]">
-                Proposals
-              </h2>
-              <Link href="/dashboard/proposals" className="text-[12px] font-bold text-[#ff4f1a]">
-                Open
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {DEMO_PROPOSALS.slice(0, 3).map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between rounded-xl bg-[#f4f4f5] px-3 py-2.5"
-                >
-                  <div>
-                    <p className="text-[13px] font-semibold">{p.clientName}</p>
-                    <p className="text-[11px] capitalize text-[#a1a1aa]">{p.status}</p>
-                  </div>
-                  <p className="text-[13px] font-bold">{formatMoney(p.amountCents)}</p>
-                </div>
+          <section className="dash-rise rounded-[var(--radius)] border border-line bg-ink p-5 text-white shadow-[var(--shadow)]">
+            <p className="mkt-label text-white/55">Focus</p>
+            <h2 className="mkt-h3 mt-1 text-white">
+              {empty ? "First moves in your HQ" : "Three moves that unstick cash"}
+            </h2>
+            <ul className="mt-4 divide-y divide-white/10 border-y border-white/10">
+              {(empty
+                ? [
+                    {
+                      title: "Create your first client build",
+                      hint: "Opens a private portal link",
+                      href: "/dashboard/projects",
+                    },
+                    {
+                      title: "Add a contact",
+                      hint: "Keep Shopify store owners in one place",
+                      href: "/dashboard/contacts",
+                    },
+                    {
+                      title: "Review your plan",
+                      hint: "14-day Pro trial included",
+                      href: "/dashboard/billing",
+                    },
+                  ]
+                : [
+                    {
+                      title: "Send a proposal",
+                      hint: "Turn a warm lead into a signed scope",
+                      href: "/dashboard/proposals",
+                    },
+                    {
+                      title: "Request a milestone",
+                      hint: "Attach payment asks to a live build",
+                      href: "/dashboard/invoices",
+                    },
+                    {
+                      title: "Share a client portal",
+                      hint: "One link for files, status, and pay",
+                      href: "/dashboard/projects",
+                    },
+                  ]
+              ).map((a) => (
+                <li key={a.title}>
+                  <Link
+                    href={a.href}
+                    className="dash-row block py-3 transition-colors duration-[var(--motion-micro)] hover:text-accent"
+                  >
+                    <p className="mkt-row text-white">{a.title}</p>
+                    <p className="mkt-meta mt-0.5 text-white/55">{a.hint}</p>
+                  </Link>
+                </li>
               ))}
-            </div>
+            </ul>
           </section>
 
-          <section className="rounded-2xl border border-[#e4e4e7] bg-white p-5 shadow-[0_10px_30px_rgba(16,35,28,0.04)]">
+          <section className="dash-rise rounded-[var(--radius)] border border-line bg-paper-2 p-5 shadow-[var(--shadow)]">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-[family-name:var(--font-syne)] text-[20px]">
-                Invoices
-              </h2>
-              <Link href="/dashboard/invoices" className="text-[12px] font-bold text-[#ff4f1a]">
+              <h2 className="mkt-h3">Offers in flight</h2>
+              <MagneticLink href="/dashboard/proposals" className="mkt-link">
                 Open
-              </Link>
+              </MagneticLink>
             </div>
-            <div className="space-y-2">
-              {DEMO_INVOICES.slice(0, 4).map((inv) => (
-                <div
-                  key={inv.id}
-                  className="flex items-center justify-between rounded-xl bg-[#f4f4f5] px-3 py-2.5"
-                >
-                  <div>
-                    <p className="text-[13px] font-semibold">{inv.number}</p>
-                    <p className="text-[11px] capitalize text-[#a1a1aa]">
-                      {inv.status} · {inv.clientName}
-                    </p>
-                  </div>
-                  <p className="text-[13px] font-bold">{formatMoney(inv.amountCents)}</p>
-                </div>
-              ))}
+            <p className="mkt-meta text-muted">
+              No proposals yet — they appear here when you create them.
+            </p>
+          </section>
+
+          <section className="dash-rise rounded-[var(--radius)] border border-line bg-paper-2 p-5 shadow-[var(--shadow)]">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="mkt-h3">Payout pulse</h2>
+              <MagneticLink href="/dashboard/invoices" className="mkt-link">
+                Open
+              </MagneticLink>
             </div>
+            {stats.awaiting + stats.paid === 0 ? (
+              <p className="mkt-meta text-muted">
+                No payment requests yet — add them on a project.
+              </p>
+            ) : (
+              <p className="mkt-meta text-muted">
+                Waiting {formatMoney(stats.awaiting)} · paid{" "}
+                {formatMoney(stats.paid)}
+              </p>
+            )}
           </section>
         </div>
       </div>

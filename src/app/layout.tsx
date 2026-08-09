@@ -1,30 +1,40 @@
 import type { Metadata } from "next";
-import { Manrope, Syne } from "next/font/google";
+import { Figtree, Syne } from "next/font/google";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-});
-
+/** Expressive display — headlines, heroes, metrics */
 const syne = Syne({
   variable: "--font-syne",
   subsets: ["latin"],
+  weight: ["600", "700", "800"],
+});
+
+/** Clear UI body — CRM chrome, forms, paragraphs */
+const figtree = Figtree({
+  variable: "--font-figtree",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
-  title: "PortalKit — Client ops for Shopify freelancers",
+  title: {
+    default: "PortalKit — Client HQ for Shopify freelancers",
+    template: "%s | PortalKit",
+  },
   description:
-    "Pipeline, proposals, invoices, and branded client portals in one place. Built for Shopify freelancers.",
+    "PortalKit is the freelancer OS for theme rebuilds, launches, and retainers — deals, delivery, and deposits in one workspace.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${syne.variable} h-full antialiased`}
+      className={`${syne.variable} ${figtree.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full font-sans">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
